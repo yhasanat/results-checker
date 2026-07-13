@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>فحص النتائج برقم الهوية</title>
-  <meta name="description" content="موقع بسيط لفحص النتائج من Google Sheets باستخدام رقم الهوية" />
+  <meta name="description" content="موقع بسيط لفحص النتائج باستخدام رقم الهوية" />
   <style>
     :root {
       --bg: #f4f7fb;
@@ -348,7 +348,7 @@
     <section class="hero">
       <div class="badge">📋 نظام فحص النتائج</div>
       <h1>فحص النتيجة برقم الهوية</h1>
-      <p class="subtitle">أدخل رقم الهوية كما هو مسجل، وسيتم عرض النتيجة من Google Sheets داخل جدول واضح من عمودين وبالخانات المعتمدة.</p>
+      <p class="subtitle">أدخل رقم الهوية كما هو مسجل، وسيتم عرض النتيجة .</p>
     </section>
 
     <section class="main-card" aria-label="نموذج فحص النتائج">
@@ -367,7 +367,7 @@
       <div id="message" class="message" role="status"></div>
       <div id="results" class="results"></div>
 
-      <p class="footer-note">ملاحظة: الموقع لا يخزن البيانات. يتم قراءة النتائج مباشرة من Google Sheets، ثم تتم المطابقة داخل المتصفح فقط.</p>
+      <p class="footer-note">ملاحظة: الموقع لا يخزن البيانات. يتم قراءة النتائج مباشرة .</p>
     </section>
   </main>
 
@@ -562,7 +562,7 @@
           if (finished) return;
           finished = true;
           cleanup();
-          reject(new Error("تعذر الاتصال بملف Google Sheets. تأكد من الرابط والصلاحيات."));
+          reject(new Error("تعذر الاتصال بملف  تأكد من الرابط والصلاحيات."));
         };
 
         script.src = url;
@@ -573,7 +573,7 @@
     async function refreshData(showSuccess = true) {
       setLoading(true);
       clearResults();
-      showMessage("جاري فحص الشيت وتحميل البيانات...", "info");
+      showMessage("جاري فحص  وتحميل البيانات...", "info");
 
       try {
         const { headers, rows } = await loadGoogleSheet();
