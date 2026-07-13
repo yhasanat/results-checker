@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>فحص النتائج برقم الهوية</title>
+  <meta name="description" content="موقع بسيط لفحص النتائج من Google Sheets باستخدام رقم الهوية" />
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --primary: #155eef;
+      --primary-dark: #0f46b9;
+      --success: #0f766e;
+      --danger: #b42318;
+      --warning: #b54708;
+      --border: #d9e2ef;
+      --soft: #eef4ff;
+      --soft-2: #f8fafc;
+      --shadow: 0 18px 50px rgba(16, 24, 40, 0.10);
+      --radius: 22px;
+      font-family: Tahoma, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(21, 94, 239, 0.16), transparent 36%),
+        radial-gradient(circle at bottom left, rgba(15, 118, 110, 0.12), transparent 32%),
+        var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 14px;
+    }
+
+
+    body.has-important-note {
+      background:
+        radial-gradient(circle at top right, rgba(180, 35, 24, 0.22), transparent 36%),
+        radial-gradient(circle at bottom left, rgba(244, 63, 94, 0.16), transparent 32%),
+        #fff1f0;
+    }
+
+    body.has-important-note .badge {
+      border-color: rgba(180, 35, 24, 0.24);
+      color: var(--danger);
+      background: rgba(255, 241, 240, 0.88);
+    }
+
+    .main-card.critical-mode {
+      border-color: rgba(180, 35, 24, 0.28);
+      box-shadow: 0 20px 56px rgba(180, 35, 24, 0.18);
+    }
+
+    .page { width: min(860px, 100%); }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 13px;
+      border: 1px solid rgba(21, 94, 239, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--primary-dark);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    h1 {
+      margin: 14px 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.25;
+      letter-spacing: -0.7px;
+    }
+
+    .subtitle {
+      margin: 0 auto;
+      max-width: 680px;
+      color: var(--muted);
+      line-height: 1.9;
+      font-size: 16px;
+    }
+
+    .main-card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 3vw, 34px);
+      backdrop-filter: blur(10px);
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin-top: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-weight: 800;
+      margin-bottom: 9px;
+    }
+
+    .input-wrap { min-width: 0; }
+
+    input {
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 0 16px;
+      font-size: 18px;
+      background: #fff;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      direction: ltr;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(21, 94, 239, 0.11);
+    }
+
+    button {
+      min-height: 54px;
+      border: 0;
+      border-radius: 15px;
+      background: var(--primary);
+      color: white;
+      font-size: 16px;
+      font-weight: 900;
+      padding: 0 24px;
+      cursor: pointer;
+      transition: transform .14s, background .14s, opacity .14s;
+      white-space: nowrap;
+    }
+
+    button:hover { background: var(--primary-dark); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .65; cursor: not-allowed; }
+
+    .tools {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .message {
+      margin-top: 18px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: none;
+      line-height: 1.8;
+      font-weight: 800;
+    }
+
+    .message.show { display: block; }
+    .message.info { color: var(--primary-dark); background: #eef4ff; border: 1px solid #c7d7fe; }
+    .message.error { color: var(--danger); background: #fff1f0; border: 1px solid #fecdca; }
+    .message.warning { color: var(--warning); background: #fff7ed; border: 1px solid #fed7aa; }
+    .message.success { color: var(--success); background: #ecfdf3; border: 1px solid #a6f4c5; }
+
+    .results {
+      margin-top: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .result-card {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+    }
+
+
+    .result-card.important-result {
+      border-color: #f04438;
+      box-shadow: 0 10px 30px rgba(180, 35, 24, 0.14);
+    }
+
+    .result-card.important-result .result-head {
+      background: linear-gradient(135deg, #fff1f0, #fee4e2);
+      border-bottom-color: #fecdca;
+    }
+
+    .result-card.important-result .status-pill {
+      color: var(--danger);
+      border-color: #fecdca;
+      background: #fff1f0;
+    }
+
+    .important-alert {
+      margin: 16px 18px 0;
+      padding: 14px 16px;
+      border: 1px solid #fecdca;
+      border-radius: 16px;
+      color: var(--danger);
+      background: #fff1f0;
+      line-height: 1.9;
+      font-weight: 900;
+      white-space: pre-wrap;
+    }
+
+    .important-alert strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 15px;
+    }
+
+    .result-head {
+      padding: 16px 18px;
+      background: linear-gradient(135deg, #eef4ff, #f0fdf9);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 7px 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--primary-dark);
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    .table-wrap { width: 100%; overflow-x: auto; }
+
+    table.result-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      table-layout: fixed;
+    }
+
+    .result-table thead th {
+      background: #f8fafc;
+      color: #344054;
+      font-size: 15px;
+      text-align: right;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 900;
+    }
+
+    .result-table th:first-child,
+    .result-table td:first-child {
+      width: 38%;
+    }
+
+    .result-table tbody tr:nth-child(even) td { background: var(--soft-2); }
+
+    .result-table td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.75;
+      overflow-wrap: anywhere;
+    }
+
+    .result-table tbody tr:last-child td { border-bottom: 0; }
+
+    .field-key {
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .field-value {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .loader {
+      width: 16px;
+      height: 16px;
+      border: 3px solid rgba(255,255,255,.5);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin .8s linear infinite;
+      vertical-align: middle;
+      margin-inline-start: 8px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      body { align-items: flex-start; }
+      form { grid-template-columns: 1fr; }
+      button { width: 100%; }
+      .main-card { border-radius: 18px; }
+      .result-head { align-items: flex-start; }
+      .result-table th:first-child,
+      .result-table td:first-child { width: 42%; }
+      .result-table thead th,
+      .result-table td { padding: 12px 11px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="badge">📋 نظام فحص النتائج</div>
+      <h1>فحص النتيجة برقم الهوية</h1>
+      <p class="subtitle">أدخل رقم الهوية كما هو مسجل، وسيتم عرض النتيجة من Google Sheets داخل جدول واضح من عمودين وبالخانات المعتمدة.</p>
+    </section>
+
+    <section class="main-card" aria-label="نموذج فحص النتائج">
+      <form id="searchForm">
+        <div class="input-wrap">
+          <label for="nationalId">رقم الهوية</label>
+          <input id="nationalId" name="nationalId" type="text" inputmode="numeric" autocomplete="off" placeholder="مثال: 123456789" />
+        </div>
+        <button id="searchBtn" type="submit">فحص النتيجة</button>
+      </form>
+
+      <div class="tools">
+        <span id="lastUpdate">يتم فحص بنية الشيت وتحميل البيانات تلقائيًا عند فتح الصفحة.</span>
+      </div>
+
+      <div id="message" class="message" role="status"></div>
+      <div id="results" class="results"></div>
+
+      <p class="footer-note">ملاحظة: الموقع لا يخزن البيانات. يتم قراءة النتائج مباشرة من Google Sheets، ثم تتم المطابقة داخل المتصفح فقط.</p>
+    </section>
+  </main>
+
+  <script>
+    const CONFIG = {
+      spreadsheetId: "16aVXqAOmpHj2BiUDAeje-4BNQRc5h7yyWdNoMB4jjm0",
+      gid: "0",
+
+      // أسماء محتملة لعمود رقم الهوية داخل الشيت.
+      idColumnCandidates: [
+        "رقم الهوية", "رقم الهويه", "الهوية", "الهويه", "هوية", "رقم الهوية الوطنية",
+        "رقم هويه", "رقم الهوية/الجواز", "id", "ID", "Id", "national id", "national_id",
+        "identity", "student id", "personal id"
+      ],
+
+      // أعمدة تستخدم فقط لرأس النتيجة إن وجدت. لن يتم حذفها من الجدول.
+      titleColumnCandidates: ["الاسم", "الاسم الرباعي", "اسم الطالب", "اسم المتدرب", "name", "student name"],
+      statusColumnCandidates: ["النتيجة(100)", "النتيجة", "الحالة", "التقدير", "ناجح/راسب", "result", "status", "grade"],
+
+      // إذا كان هذا العمود يحتوي على قيمة للهوية المطابقة، تتحول النتيجة إلى تنبيه أحمر ويظهر محتواه بوضوح.
+      importantNotesColumnCandidates: [
+        "ملاحظات هامة", "ملاحظات هامه", "ملاحظة هامة", "ملاحظة هامه",
+        "تنبيه هام", "تنبيهات هامة", "important notes", "important_note", "critical notes"
+      ],
+
+      // الأعمدة المعتمدة للعرض داخل جدول النتيجة، وبنفس هذا الترتيب.
+      // كل عنصر هنا يظهر كسطر داخل الجدول: الخانة / النتيجة.
+      displayColumns: [
+        "الاسم",
+        "رقم الهوية",
+        "الحضور(7 علامات)",
+        "علامات اول العام التدريبي(7 علامات)",
+        "عملي 1(12 علامة)",
+        "تدريب ميداني(20 علامة)",
+        "العمل التطوعي(10 علامات)",
+        "عملي 2(8 علامات)",
+        "تقرير التمرين(9 علامات)",
+        "مجموع العلامات(70 علامة)",
+        "الاختبار الوزاري(30 علامة)",
+        "العلامة النهائية(100)",
+        "النتيجة(100)",
+        "الملاحظات",
+        "ملاحظات هامة"
+      ],
+
+      // أعمدة تقنية لا تظهر للزائر إذا وجدت. لا تضع رقم الهوية هنا حتى يظهر ضمن الجدول عند الحاجة.
+      technicalHiddenColumns: [
+        "timestamp", "طابع زمني", "وقت الإرسال", "تاريخ الإرسال", "ملاحظات داخلية", "internal notes"
+      ]
+    };
+
+    const state = {
+      rows: [],
+      headers: [],
+      idColumn: null,
+      loading: false,
+      inspected: false
+    };
+
+    const form = document.getElementById("searchForm");
+    const input = document.getElementById("nationalId");
+    const searchBtn = document.getElementById("searchBtn");
+    const message = document.getElementById("message");
+    const results = document.getElementById("results");
+    const lastUpdate = document.getElementById("lastUpdate");
+    const mainCard = document.querySelector(".main-card");
+
+    function toEnglishDigits(value) {
+      return String(value ?? "")
+        .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+        .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+    }
+
+    function digitsOnly(value) {
+      return toEnglishDigits(value).replace(/\D/g, "");
+    }
+
+    function normalizeHeader(value) {
+      return String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/[\s_\-\/\\.]+/g, "")
+        .replace(/[^\u0600-\u06FFa-z0-9]/g, "");
+    }
+
+    function findColumn(headers, candidates) {
+      const normalizedCandidates = candidates.map(normalizeHeader).filter(Boolean);
+      if (!normalizedCandidates.length) return null;
+
+      for (const h of headers) {
+        if (normalizedCandidates.includes(normalizeHeader(h))) return h;
+      }
+
+      for (const h of headers) {
+        const nh = normalizeHeader(h);
+        if (normalizedCandidates.some(c => nh.includes(c) || c.includes(nh))) return h;
+      }
+
+      return null;
+    }
+
+    function isTechnicalColumn(header) {
+      return Boolean(findColumn([header], CONFIG.technicalHiddenColumns));
+    }
+
+    function setLoading(isLoading) {
+      state.loading = isLoading;
+      searchBtn.disabled = isLoading;
+      searchBtn.innerHTML = isLoading ? 'جاري التحميل <span class="loader"></span>' : 'فحص النتيجة';
+    }
+
+    function showMessage(text, type = "info") {
+      message.className = `message show ${type}`;
+      message.textContent = text;
+    }
+
+    function hideMessage() {
+      message.className = "message";
+      message.textContent = "";
+    }
+
+    function setImportantMode(active) {
+      document.body.classList.toggle("has-important-note", Boolean(active));
+      mainCard.classList.toggle("critical-mode", Boolean(active));
+    }
+
+    function clearResults() {
+      results.innerHTML = "";
+      setImportantMode(false);
+    }
+
+    function loadGoogleSheet() {
+      return new Promise((resolve, reject) => {
+        const callbackName = "sheetCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+        const script = document.createElement("script");
+        const query = encodeURIComponent("select *");
+        const tqx = encodeURIComponent(`responseHandler:${callbackName}`);
+        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?gid=${CONFIG.gid}&tq=${query}&tqx=${tqx}&cacheBust=${Date.now()}`;
+
+        let finished = false;
+        const timeout = setTimeout(() => {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          reject(new Error("انتهت مهلة تحميل البيانات. تأكد أن Google Sheet متاح للعرض العام."));
+        }, 14000);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+
+        window[callbackName] = (response) => {
+          if (finished) return;
+          finished = true;
+          cleanup();
+
+          if (!response || response.status === "error") {
+            const detail = response?.errors?.[0]?.detailed_message || "تعذر قراءة بيانات الشيت.";
+            reject(new Error(detail));
+            return;
+          }
+
+          const table = response.table;
+          if (!table || !Array.isArray(table.cols) || !Array.isArray(table.rows)) {
+            reject(new Error("لم يتم العثور على جدول بيانات صالح داخل الشيت."));
+            return;
+          }
+
+          const headers = table.cols.map((col, i) => {
+            const label = String(col.label || col.id || `عمود ${i + 1}`).trim();
+            return label || `عمود ${i + 1}`;
+          });
+
+          const rows = table.rows.map(row => {
+            const obj = {};
+            headers.forEach((header, i) => {
+              const cell = row.c?.[i];
+              obj[header] = cell ? String(cell.f ?? cell.v ?? "").trim() : "";
+            });
+            return obj;
+          }).filter(row => Object.values(row).some(Boolean));
+
+          resolve({ headers, rows });
+        };
+
+        script.onerror = () => {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          reject(new Error("تعذر الاتصال بملف Google Sheets. تأكد من الرابط والصلاحيات."));
+        };
+
+        script.src = url;
+        document.body.appendChild(script);
+      });
+    }
+
+    async function refreshData(showSuccess = true) {
+      setLoading(true);
+      clearResults();
+      showMessage("جاري فحص الشيت وتحميل البيانات...", "info");
+
+      try {
+        const { headers, rows } = await loadGoogleSheet();
+        const idColumn = findColumn(headers, CONFIG.idColumnCandidates);
+
+        state.headers = headers;
+        state.rows = rows;
+        state.idColumn = idColumn;
+        state.inspected = true;
+
+        if (!idColumn) {
+          lastUpdate.textContent = `تم فحص الشيت: ${headers.length} أعمدة، ${rows.length} سجلات. لم يتم تحديد عمود الهوية.`;
+          showMessage(`تم تحميل البيانات، لكن لم أجد عمود رقم الهوية. أسماء الأعمدة الحالية: ${headers.join("، ")}`, "warning");
+          return;
+        }
+
+        const now = new Date();
+        lastUpdate.textContent = `تم فحص الشيت: ${headers.length} أعمدة، ${rows.length} سجلات. عمود الهوية: ${idColumn}. آخر تحميل: ${now.toLocaleString("ar-PS")}`;
+
+        if (showSuccess) {
+          showMessage(`تم تحميل ${rows.length} سجل وفحص ${headers.length} عمود. يمكنك الآن إدخال رقم الهوية.`, "success");
+        } else {
+          hideMessage();
+        }
+      } catch (error) {
+        showMessage(error.message || "حدث خطأ غير متوقع أثناء تحميل البيانات.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function getDisplayFields(row) {
+      if (CONFIG.displayColumns.length) {
+        return CONFIG.displayColumns.map(label => {
+          const header = findColumn(state.headers, [label]);
+          return {
+            label,
+            header,
+            value: header ? String(row[header] ?? "").trim() : ""
+          };
+        });
+      }
+
+      return state.headers
+        .filter(header => {
+          if (isTechnicalColumn(header)) return false;
+          const value = String(row[header] ?? "").trim();
+          return value !== "";
+        })
+        .map(header => ({
+          label: header,
+          header,
+          value: String(row[header] ?? "").trim()
+        }));
+    }
+
+    function getImportantNote(row) {
+      const importantColumn = findColumn(state.headers, CONFIG.importantNotesColumnCandidates);
+      if (!importantColumn) return "";
+      const value = String(row[importantColumn] ?? "").trim();
+      return value;
+    }
+
+    function renderMatches(matches) {
+      clearResults();
+
+      const hasImportantNote = matches.some(row => Boolean(getImportantNote(row)));
+      setImportantMode(hasImportantNote);
+
+      const titleColumn = findColumn(state.headers, CONFIG.titleColumnCandidates);
+      const statusColumn = findColumn(state.headers, CONFIG.statusColumnCandidates);
+
+      matches.forEach((row, index) => {
+        const title = titleColumn && row[titleColumn] ? row[titleColumn] : `نتيجة رقم ${index + 1}`;
+        const status = statusColumn && row[statusColumn] ? row[statusColumn] : "تم العثور على النتيجة";
+        const displayFields = getDisplayFields(row);
+        const importantNote = getImportantNote(row);
+
+        const card = document.createElement("article");
+        card.className = importantNote ? "result-card important-result" : "result-card";
+
+        card.innerHTML = `
+          <div class="result-head">
+            <h2 class="result-title"></h2>
+            <span class="status-pill"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th scope="col">الخانة</th>
+                  <th scope="col">النتيجة</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+
+        card.querySelector(".result-title").textContent = title;
+        card.querySelector(".status-pill").textContent = importantNote ? `تنبيه هام — ${displayFields.length} خانة` : `${status} — ${displayFields.length} خانة`;
+
+        if (importantNote) {
+          const alert = document.createElement("div");
+          alert.className = "important-alert";
+
+          const label = document.createElement("strong");
+          label.textContent = "ملاحظات هامة";
+
+          const content = document.createElement("span");
+          content.textContent = importantNote;
+
+          alert.appendChild(label);
+          alert.appendChild(content);
+          card.querySelector(".table-wrap").before(alert);
+        }
+
+        const tbody = card.querySelector("tbody");
+        displayFields.forEach(field => {
+          const tr = document.createElement("tr");
+          const keyTd = document.createElement("td");
+          const valueTd = document.createElement("td");
+          keyTd.className = "field-key";
+          valueTd.className = "field-value";
+          keyTd.textContent = field.label;
+          valueTd.textContent = field.value || "-";
+          tr.appendChild(keyTd);
+          tr.appendChild(valueTd);
+          tbody.appendChild(tr);
+        });
+
+        if (!displayFields.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 2;
+          td.textContent = "تم العثور على السجل، لكن لا توجد خانات قابلة للعرض.";
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        }
+
+        results.appendChild(card);
+      });
+    }
+
+    async function handleSearch(event) {
+      event.preventDefault();
+      clearResults();
+
+      const targetId = digitsOnly(input.value);
+      if (!targetId) {
+        showMessage("يرجى إدخال رقم الهوية أولاً.", "warning");
+        input.focus();
+        return;
+      }
+
+      if (!state.rows.length || !state.idColumn) {
+        await refreshData(false);
+      }
+
+      if (!state.idColumn) return;
+
+      const matches = state.rows.filter(row => digitsOnly(row[state.idColumn]) === targetId);
+
+      if (!matches.length) {
+        showMessage("لم يتم العثور على نتيجة لهذا الرقم. تأكد من رقم الهوية ثم أعد المحاولة.", "error");
+        return;
+      }
+
+      const hasImportantNote = matches.some(row => Boolean(getImportantNote(row)));
+      if (hasImportantNote) {
+        showMessage("تم العثور على النتيجة، وتوجد ملاحظات هامة مرتبطة بهذا الرقم.", "error");
+      } else {
+        showMessage(`تم العثور على ${matches.length} نتيجة مطابقة.`, "success");
+      }
+      renderMatches(matches);
+    }
+
+    form.addEventListener("submit", handleSearch);
+
+    // تحميل وفحص أولي تلقائي للشيت عند فتح الصفحة.
+    refreshData(false);
+  </script>
+</body>
+</html>
